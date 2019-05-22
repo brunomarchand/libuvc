@@ -1272,8 +1272,29 @@ void _uvc_populate_frame(uvc_stream_handle_t *strmh) {
     frame->step = frame->width * 2;
     break;
   case UVC_FRAME_FORMAT_MJPEG:
+  {
+    //Method 2 still image are received within stream data.
+    //Read actual resolution from jpeg data
+    //Thanks to "stev" https://stackoverflow.com/questions/17847171/c-library-for-getting-the-jpeg-image-size
+    int i = 0;
+    unsigned char* data = strmh->holdbuf;
+    if(data[i] == 0xFF && data[i + 1] == 0xD8 && data[i + 2] == 0xFF && data[i + 3] == 0xE0) {
+        i += 4;
+        /* Check for null terminated JFIF */
+        if(data[i + 2] == 'J' && data[i + 3] == 'F' && data[i + 4] == 'I' && data[i + 5] == 'F' && data[i + 6] == 0x00) {
+            while(i++ < frame->data_bytes - 9) {
+                if(data[i] == 0xFF && data[i+1] == 0xC0){
+                    frame->height = (data[i + 5] << 8) + data[i + 6];
+                    frame->width = (data[i + 7] << 8) + data[i + 8];
+                    break;
+                }
+            }
+        }
+    }
+
     frame->step = 0;
     break;
+  }
   default:
     frame->step = 0;
     break;
